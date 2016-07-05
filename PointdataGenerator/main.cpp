@@ -46,7 +46,7 @@ void main(int argc, char** argv)
 {
 	float noise = 0.5;
 	float roughness = 1;
-	float scaleFactor = 1.5;
+	float scaleFactor = 1;
 	std::string filename = "data";
 
 	if (argc > 1)
