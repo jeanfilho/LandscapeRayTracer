@@ -7,7 +7,7 @@
 #include <sstream>
 #include <iomanip>
 
-int GRID_SIZE = 1024 + 1;
+int GRID_SIZE = 256 + 1;
 
 struct Point
 {

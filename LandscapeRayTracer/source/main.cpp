@@ -1,9 +1,16 @@
 #include <gl/freeglut.h>
+#include <glm/common.hpp>
+
+
+#define get_pixel(m, a, b) m[a * window_width + b]
 
 void init();
 void display(void);
 void centerOnScreen();
-void drawObject();
+void updatePixelBuffer();
+glm::vec3 castRay(int x, int y);
+void exit();
+void loadPointData();
 
 //  define the window position on screen
 int window_x;
@@ -15,6 +22,20 @@ int window_height = 768;
 
 //  variable representing the window title
 char *window_title = "Landscape Raytracer";
+
+// grid
+int grid_size = 1000000;
+char *grid;
+int coarse_grid_size = 1000;
+char *coarse_grid;
+
+// camera variables
+glm::vec3 camera_position;
+glm::vec3 camera_forward;
+float frame_distance = 10.0f;
+
+// pixel array
+GLfloat *pixel_array;
 
 //-------------------------------------------------------------------------
 //  Program Main method.
@@ -36,6 +57,7 @@ void main(int argc, char **argv)
 
 	// Set the callback functions
 	glutDisplayFunc(display);
+	atexit(exit);
 
 	//  Start GLUT event processing loop
 	glutMainLoop();
@@ -48,6 +70,16 @@ void init()
 {
 	//  Set the frame buffer clear color to black. 
 	glClearColor(0.0, 0.0, 0.0, 0.0);
+
+	grid = new char[grid_size * grid_size * grid_size];
+	coarse_grid = new char[coarse_grid_size * coarse_grid_size * coarse_grid_size];
+	pixel_array = new GLfloat[window_height * window_width * 3];
+
+	//camera initial parameters;
+	camera_position = glm::vec3(-20, 10, -20);
+	camera_forward = -camera_position;
+
+	
 }
 
 //-------------------------------------------------------------------------
@@ -61,20 +93,46 @@ void display(void)
 	//  buffer by the clear color (black in our case)
 	glClear(GL_COLOR_BUFFER_BIT);
 
-	//  Draw object
-	drawObject();
+	//  Cast rays
+	updatePixelBuffer();
+
+	//  Draw Pixels
+	glDrawPixels(window_width, window_height, GL_RGB, GL_FLOAT, pixel_array);
 
 	//  Swap contents of backward and forward frame buffers
 	glutSwapBuffers();
 }
 
 //-------------------------------------------------------------------------
-//  Draws our object.
+//  Update the pixel buffer - cast a ray for each pixel
 //-------------------------------------------------------------------------
-void drawObject()
+void updatePixelBuffer()
 {
-	//  Draw Icosahedron
-	glutWireIcosahedron();
+	for(int y = 0; y < window_height; y++)
+		for (int x = 0; x < window_width; x++)
+		{
+			glm::vec3 result = castRay(x, y);
+			get_pixel(pixel_array, x, y) = result.x;
+			get_pixel(pixel_array, x, y + 1) = result.y;
+			get_pixel(pixel_array, x, y + 2) = result.z;
+		}
+}
+
+
+//-------------------------------------------------------------------------
+//  Cast a ray through the grid
+//-------------------------------------------------------------------------
+glm::vec3 castRay(int x, int y)
+{
+
+}
+
+//-------------------------------------------------------------------------
+//  Load point data - testing
+//-------------------------------------------------------------------------
+void loadPointData()
+{
+
 }
 
 //-------------------------------------------------------------------------
@@ -85,4 +143,13 @@ void centerOnScreen()
 {
 	window_x = (glutGet(GLUT_SCREEN_WIDTH) - window_width) / 2;
 	window_y = (glutGet(GLUT_SCREEN_HEIGHT) - window_height) / 2;
+}
+
+//-------------------------------------------------------------------------
+//  Clears any allocated memory
+//-------------------------------------------------------------------------
+void exit()
+{
+	delete(grid);
+	delete(pixel_array);
 }
