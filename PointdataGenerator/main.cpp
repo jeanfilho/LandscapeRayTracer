@@ -46,7 +46,7 @@ void main(int argc, char** argv)
 {
 	float noise = 0.5;
 	float roughness = 1;
-	float scaleFactor = 1;
+	float scaleFactor = 100;
 	std::string filename = "data";
 
 	if (argc > 1)
@@ -174,8 +174,6 @@ void scaleData(std::vector<std::vector<Point>>* grid, float factor)
 		for (int j = 0; j < GRID_SIZE; j++)
 		{
 			(*grid)[i][j].z *= factor;
-			(*grid)[i][j].y *= factor;
-			(*grid)[i][j].x *= factor;
 		}
 	}
 }

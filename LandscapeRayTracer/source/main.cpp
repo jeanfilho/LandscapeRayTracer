@@ -1,8 +1,7 @@
 #include <gl/freeglut.h>
 #include <glm/common.hpp>
-
-
-#define get_pixel(m, a, b) m[a * window_width + b]
+#include <fstream>
+#include <string>
 
 void init();
 void display(void);
@@ -24,9 +23,9 @@ int window_height = 768;
 char *window_title = "Landscape Raytracer";
 
 // grid
-int grid_size = 1000000;
+int grid_size = 1000;
 char *grid;
-int coarse_grid_size = 1000;
+int coarse_grid_size = 10;
 char *coarse_grid;
 
 // camera variables
@@ -37,10 +36,16 @@ float frame_distance = 10.0f;
 // pixel array
 GLfloat *pixel_array;
 
+// macros
+#define get_pixel(a, b) pixel_array[a * window_width + b]
+#define get_voxel(x, y, z) grid[x * grid_size * grid_size + y * grid_size + z]
+#define get_coarse_voxel(x, y, z) coarse_grid[x * coarse_grid_size * coarse_grid_size + y * coarse_grid_size + z]
+
+
 //-------------------------------------------------------------------------
 //  Program Main method.
 //-------------------------------------------------------------------------
-void main(int argc, char **argv)
+int main(int argc, char **argv)
 {
 	//  Connect to the windowing system + create a window
 	//  with the specified dimensions and position
@@ -61,6 +66,8 @@ void main(int argc, char **argv)
 
 	//  Start GLUT event processing loop
 	glutMainLoop();
+
+	return 0;
 }
 
 //-------------------------------------------------------------------------
@@ -71,6 +78,7 @@ void init()
 	//  Set the frame buffer clear color to black. 
 	glClearColor(0.0, 0.0, 0.0, 0.0);
 
+	//initialize grids
 	grid = new char[grid_size * grid_size * grid_size];
 	coarse_grid = new char[coarse_grid_size * coarse_grid_size * coarse_grid_size];
 	pixel_array = new GLfloat[window_height * window_width * 3];
@@ -78,6 +86,8 @@ void init()
 	//camera initial parameters;
 	camera_position = glm::vec3(-20, 10, -20);
 	camera_forward = -camera_position;
+
+	loadPointData();
 
 	
 }
@@ -112,9 +122,9 @@ void updatePixelBuffer()
 		for (int x = 0; x < window_width; x++)
 		{
 			glm::vec3 result = castRay(x, y);
-			get_pixel(pixel_array, x, y) = result.x;
-			get_pixel(pixel_array, x, y + 1) = result.y;
-			get_pixel(pixel_array, x, y + 2) = result.z;
+			get_pixel(x, y) = result.x;
+			get_pixel(x, y + 1) = result.y;
+			get_pixel(x, y + 2) = result.z;
 		}
 }
 
@@ -124,7 +134,9 @@ void updatePixelBuffer()
 //-------------------------------------------------------------------------
 glm::vec3 castRay(int x, int y)
 {
+	glm::vec3 result;
 
+	return result;
 }
 
 //-------------------------------------------------------------------------
@@ -132,7 +144,27 @@ glm::vec3 castRay(int x, int y)
 //-------------------------------------------------------------------------
 void loadPointData()
 {
+	std::ifstream file("../Data/data");
+	std::string line, data;
+	while (std::getline(file, line) && !line.empty())
+	{
+		int start = 0, end = line.find(",");
+		data = line.substr(start, end - start);
+		int x = (int)stof(data);
 
+		start = end + 1;
+		end = line.find(",", start + 1);
+		data = line.substr(start, end - start);
+		int y = (int)stof(data);
+
+		start = end + 1; 
+		data = line.substr(start, end - start);
+		int z = (int)stof(data);
+
+		get_voxel(x, y, z) = 1;
+		get_coarse_voxel(x / coarse_grid_size, y / coarse_grid_size, z / coarse_grid_size) = 1;
+	}
+	file.close();
 }
 
 //-------------------------------------------------------------------------
