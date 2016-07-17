@@ -1,5 +1,6 @@
 #include <gl/freeglut.h>
 #include <glm/common.hpp>
+#include <glm/geometric.hpp>
 #include <fstream>
 #include <string>
 
@@ -8,8 +9,11 @@ void display(void);
 void centerOnScreen();
 void updatePixelBuffer();
 glm::vec3 castRay(int x, int y);
+glm::vec3 fineStep(glm::vec3 ray_origin, glm::vec3 ray_direction);
+void getRaycastParameter(float ray_origin, float ray_direction, float cell_size, float *d, float *t);
 void exit();
 void loadPointData();
+
 
 //  define the window position on screen
 int window_x;
@@ -23,14 +27,19 @@ int window_height = 768;
 char *window_title = "Landscape Raytracer";
 
 // grid
+glm::vec3 grid_origin(0, 0, 0);
 int grid_size = 1000;
+float cell_size = 1.0f;
 char *grid;
-int coarse_grid_size = 10;
+int coarse_factor = 10;
+int coarse_grid_size;
+float coarse_cell_size;
 char *coarse_grid;
 
 // camera variables
-glm::vec3 camera_position;
-glm::vec3 camera_forward;
+glm::vec3 camera_position(0,0,0);
+glm::vec3 camera_forward(1,0,0);
+glm::vec3 camera_up(0,1,0);
 float frame_distance = 10.0f;
 
 // pixel array
@@ -40,6 +49,7 @@ GLfloat *pixel_array;
 #define get_pixel(a, b) pixel_array[a * window_width + b]
 #define get_voxel(x, y, z) grid[x * grid_size * grid_size + y * grid_size + z]
 #define get_coarse_voxel(x, y, z) coarse_grid[x * coarse_grid_size * coarse_grid_size + y * coarse_grid_size + z]
+#define sign(a) ((a > 0) - (a < 0))
 
 
 //-------------------------------------------------------------------------
@@ -80,16 +90,15 @@ void init()
 
 	//initialize grids
 	grid = new char[grid_size * grid_size * grid_size];
+
+	coarse_grid_size = grid_size / coarse_factor;
+	coarse_cell_size = cell_size * coarse_factor;
 	coarse_grid = new char[coarse_grid_size * coarse_grid_size * coarse_grid_size];
 	pixel_array = new GLfloat[window_height * window_width * 3];
-
-	//camera initial parameters;
-	camera_position = glm::vec3(-20, 10, -20);
-	camera_forward = -camera_position;
-
 	loadPointData();
 
-	
+	//camera initial parameters;
+
 }
 
 //-------------------------------------------------------------------------
@@ -130,17 +139,170 @@ void updatePixelBuffer()
 
 
 //-------------------------------------------------------------------------
-//  Cast a ray through the grid
+//  Cast a ray through the coarse grid
+//  Parameters: -pixel_x: position of the pixel on the frame along x axis
+//				-pixel_y: position of the pixel on the frame along y axis
+//
+//  Return: - Color values of the intersected cell
+//			- glm::vec3(-1,-1,-1) if there is no intersection
+//
+//  source: http://www.scratchapixel.com/lessons/advanced-rendering/introduction-acceleration-structure/grid
 //-------------------------------------------------------------------------
-glm::vec3 castRay(int x, int y)
+glm::vec3 castRay(int pixel_x, int pixel_y)
 {
-	glm::vec3 result;
+	glm::vec3 ray_direction, ray_origin;
+	//t: current offset from component; t_: offset from ray in one axis; d_: grid step to next intersection
+	float t, tx, ty, tz, dx, dy, dz;
+	int x, y, z;
+	
+	ray_direction = camera_forward * frame_distance
+		+ camera_up * (float)(pixel_y - window_height/2)
+		+ glm::cross(camera_forward, camera_up) * (float)(pixel_x - window_width/2);
+	ray_origin = camera_position + ray_direction;
+	ray_direction = glm::normalize(ray_direction);
 
-	return result;
+	getRaycastParameter(ray_origin.x, ray_direction.x, coarse_cell_size, &dx, &tx);
+	getRaycastParameter(ray_origin.y, ray_direction.y, coarse_cell_size, &dy, &ty);
+	getRaycastParameter(ray_origin.z, ray_direction.z, coarse_cell_size, &dz, &tz);
+
+	// Coarse traversal step
+	while (get_coarse_voxel(x, y, z) == 0)
+	{
+		if (tx > ty)
+		{
+			if (tx > tz)
+			{
+				x += sign(dx);
+				t = tx;
+				tx += dx;
+				if (x >= coarse_grid_size || x < 0)
+					return glm::vec3(-1,-1,-1);
+			}
+			else
+			{
+				z += sign(dz);
+				t = tz;
+				tz += dz;
+				if (z >= coarse_grid_size || z < 0)
+					return glm::vec3(-1, -1, -1);
+			}
+		}
+		else
+		{
+			if (ty > tz)
+			{
+				y += sign(dy);
+				t = ty;
+				ty += dy;
+				if (y >= coarse_grid_size || y < 0)
+					return glm::vec3(-1, -1, -1);
+			}
+			else
+			{
+				z += sign(dz);
+				t = tz;
+				tz += dz;
+				if (z >= coarse_grid_size || z < 0)
+					return glm::vec3(-1, -1, -1);
+			}
+		}
+	}
+
+	return fineStep(ray_origin + glm::vec3(tx,ty,tz), ray_direction);
+}
+
+void getRaycastParameter(float ray_org, float ray_dir, float cell_size, float *d, float *t)
+{
+	float org_grid = ray_org - grid_origin.x;
+	float org_cell = org_grid / cell_size;
+
+	if (ray_dir == 0)
+	{
+		*t = 0;
+		*d = 0;
+	}
+	else if (ray_dir > 0)
+	{
+		*d = cell_size / ray_dir;
+		*t = ((glm::floor(org_cell) + 1) * cell_size - org_grid) / ray_dir;
+	}
+	else
+	{
+		*d = -cell_size / ray_dir;
+		*t = (glm::floor(org_cell) * cell_size - org_grid) / ray_dir;
+	}
 }
 
 //-------------------------------------------------------------------------
-//  Load point data - testing
+//  Cast a ray through the finer grid
+//  Parameters: -ray_direction: direction of the ray (has to be normalized!)
+//				-ray_origin: point of intersection with the coarse grid
+//
+//  Return: - Color values of the intersected cell
+//			- glm::vec3(-1,-1,-1) if there is no intersection
+//
+//  source: http://www.scratchapixel.com/lessons/advanced-rendering/introduction-acceleration-structure/grid
+//-------------------------------------------------------------------------
+glm::vec3 fineStep(glm::vec3 ray_origin, glm::vec3 ray_direction)
+{
+	glm::vec3 result(-1, -1, -1);
+	float t, tx, ty, tz, dx, dy, dz;
+	int x, y, z;
+
+	getRaycastParameter(ray_origin.x, ray_direction.x, coarse_cell_size, &dx, &tx);
+	getRaycastParameter(ray_origin.y, ray_direction.y, coarse_cell_size, &dy, &ty);
+	getRaycastParameter(ray_origin.z, ray_direction.z, coarse_cell_size, &dz, &tz);
+
+	// Coarse traversal step
+	while (get_coarse_voxel(x, y, z) == 0)
+	{
+		if (tx > ty)
+		{
+			if (tx > tz)
+			{
+				x += sign(dx);
+				t = tx;
+				tx += dx;
+				if (x >= coarse_grid_size || x < 0)
+					return glm::vec3(-1, -1, -1);
+			}
+			else
+			{
+				z += sign(dz);
+				t = tz;
+				tz += dz;
+				if (z >= coarse_grid_size || z < 0)
+					return glm::vec3(-1, -1, -1);
+			}
+		}
+		else
+		{
+			if (ty > tz)
+			{
+				y += sign(dy);
+				t = ty;
+				ty += dy;
+				if (y >= coarse_grid_size || y < 0)
+					return glm::vec3(-1, -1, -1);
+			}
+			else
+			{
+				z += sign(dz);
+				t = tz;
+				tz += dz;
+				if (z >= coarse_grid_size || z < 0)
+					return glm::vec3(-1, -1, -1);
+			}
+		}
+	}
+	result = glm::vec3(.5f, 0, 0);
+	return result;
+
+}
+
+
+//-------------------------------------------------------------------------
+//  Load point data - testing purposes only
 //-------------------------------------------------------------------------
 void loadPointData()
 {
@@ -150,16 +312,16 @@ void loadPointData()
 	{
 		int start = 0, end = line.find(",");
 		data = line.substr(start, end - start);
-		int x = (int)stof(data);
+		int x = (int)(stof(data) / cell_size);
 
 		start = end + 1;
 		end = line.find(",", start + 1);
 		data = line.substr(start, end - start);
-		int y = (int)stof(data);
+		int y = (int)(stof(data) / cell_size);
 
 		start = end + 1; 
 		data = line.substr(start, end - start);
-		int z = (int)stof(data);
+		int z = (int)(stof(data) / cell_size);
 
 		get_voxel(x, y, z) = 1;
 		get_coarse_voxel(x / coarse_grid_size, y / coarse_grid_size, z / coarse_grid_size) = 1;
