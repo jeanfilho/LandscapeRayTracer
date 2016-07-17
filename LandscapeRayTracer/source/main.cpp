@@ -44,14 +44,14 @@ glm::vec3 camera_up(0,1,0);
 float frame_distance = 10.0f;
 
 // pixel array
-GLfloat *pixel_array;
+glm::vec3 *pixel_array;
 float frame_height = 50;
 float frame_width = 100;
 
 // macros
-#define get_pixel(a, b) pixel_array[a * window_width + b]
-#define get_voxel(x, y, z) grid[x * grid_size * grid_size + y * grid_size + z]
-#define get_coarse_voxel(x, y, z) coarse_grid[x * coarse_grid_size * coarse_grid_size + y * coarse_grid_size + z]
+#define get_pixel(x, y) pixel_array[y * window_width + x]
+#define get_voxel(x, y, z) grid[z * grid_size * grid_size + y * grid_size + x]
+#define get_coarse_voxel(x, y, z) coarse_grid[z * coarse_grid_size * coarse_grid_size + y * coarse_grid_size + x]
 #define sign(a) ((a > 0) - (a < 0))
 
 
@@ -98,7 +98,7 @@ void init()
 	coarse_grid_size = grid_size / coarse_factor;
 	coarse_cell_size = cell_size * coarse_factor;
 	coarse_grid = new char[coarse_grid_size * coarse_grid_size * coarse_grid_size]();
-	pixel_array = new GLfloat[window_height * window_width * 3]();
+	pixel_array = new glm::vec3[window_height * window_width]{glm::vec3(0,0,0)};
 	loadPointData();
 	
 	std::cout << "Set up finished. Starting ray tracing..." << std::endl;
@@ -139,15 +139,15 @@ void updatePixelBuffer()
 			glm::vec3 result = castRay(x, y);
 			if(result.x >= 0)
 			{
-				get_pixel(x, y) = result.r;
-				get_pixel(x, y + 1) = result.g;
-				get_pixel(x, y + 2) = result.b;
+				get_pixel(x, y).r = result.r;
+				get_pixel(x, y).g = result.g;
+				get_pixel(x, y).b = result.b;
 			}
 			else
 			{
-				get_pixel(x, y) = 1;
-				get_pixel(x, y + 1) = 1;
-				get_pixel(x, y + 2) = 0;
+				get_pixel(x, y).r = 0;
+				get_pixel(x, y).g = 0;
+				get_pixel(x, y).b = .2f;
 			}
 		}
 }
@@ -320,7 +320,7 @@ glm::vec3 fineStep(glm::vec3 ray_origin, glm::vec3 ray_direction)
 			}
 		}
 	}
-	return glm::vec3(.5f, .5f, 0);
+	return glm::vec3(0, .5f, 0);
 }
 
 
@@ -369,5 +369,6 @@ void centerOnScreen()
 void exit()
 {
 	delete(grid);
+	delete(coarse_grid);
 	delete(pixel_array);
 }
