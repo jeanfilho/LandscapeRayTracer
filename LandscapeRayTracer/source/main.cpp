@@ -3,12 +3,13 @@
 #include <glm/geometric.hpp>
 #include <fstream>
 #include <string>
+#include <iostream>
 
 void init();
 void display(void);
 void centerOnScreen();
 void updatePixelBuffer();
-glm::vec3 castRay(int x, int y);
+glm::vec3 castRay(int pixel_x, int pixel_y);
 glm::vec3 fineStep(glm::vec3 ray_origin, glm::vec3 ray_direction);
 void getRaycastParameter(float ray_origin, float ray_direction, float cell_size, float *d, float *t);
 void exit();
@@ -20,8 +21,8 @@ int window_x;
 int window_y;
 
 //  variables representing the window size
-int window_width = 1024;
-int window_height = 768;
+int window_width = 512;
+int window_height = 256;
 
 //  variable representing the window title
 char *window_title = "Landscape Raytracer";
@@ -44,6 +45,8 @@ float frame_distance = 10.0f;
 
 // pixel array
 GLfloat *pixel_array;
+float frame_height = 50;
+float frame_width = 100;
 
 // macros
 #define get_pixel(a, b) pixel_array[a * window_width + b]
@@ -85,26 +88,27 @@ int main(int argc, char **argv)
 //-------------------------------------------------------------------------
 void init()
 {
+	std::cout << "Setting up..." << std::endl;
 	//  Set the frame buffer clear color to black. 
 	glClearColor(0.0, 0.0, 0.0, 0.0);
 
 	//initialize grids
-	grid = new char[grid_size * grid_size * grid_size];
+	grid = new char[grid_size * grid_size * grid_size]();
 
 	coarse_grid_size = grid_size / coarse_factor;
 	coarse_cell_size = cell_size * coarse_factor;
-	coarse_grid = new char[coarse_grid_size * coarse_grid_size * coarse_grid_size];
-	pixel_array = new GLfloat[window_height * window_width * 3];
+	coarse_grid = new char[coarse_grid_size * coarse_grid_size * coarse_grid_size]();
+	pixel_array = new GLfloat[window_height * window_width * 3]();
 	loadPointData();
-
-	//camera initial parameters;
-
+	
+	std::cout << "Set up finished. Starting ray tracing..." << std::endl;
 }
 
 //-------------------------------------------------------------------------
 //  This function is passed to glutDisplayFunc in order to display 
 //  OpenGL contents on the window.
 //-------------------------------------------------------------------------
+int frame_number = 0;
 void display(void)
 {
 	//  Clear the window or more specifically the frame buffer...
@@ -114,6 +118,8 @@ void display(void)
 
 	//  Cast rays
 	updatePixelBuffer();
+	frame_number++;
+	std::cout << "Frame " << frame_number << std::endl;
 
 	//  Draw Pixels
 	glDrawPixels(window_width, window_height, GL_RGB, GL_FLOAT, pixel_array);
@@ -131,9 +137,18 @@ void updatePixelBuffer()
 		for (int x = 0; x < window_width; x++)
 		{
 			glm::vec3 result = castRay(x, y);
-			get_pixel(x, y) = result.x;
-			get_pixel(x, y + 1) = result.y;
-			get_pixel(x, y + 2) = result.z;
+			if(result.x >= 0)
+			{
+				get_pixel(x, y) = result.r;
+				get_pixel(x, y + 1) = result.g;
+				get_pixel(x, y + 2) = result.b;
+			}
+			else
+			{
+				get_pixel(x, y) = 1;
+				get_pixel(x, y + 1) = 1;
+				get_pixel(x, y + 2) = 0;
+			}
 		}
 }
 
@@ -156,8 +171,8 @@ glm::vec3 castRay(int pixel_x, int pixel_y)
 	int x, y, z;
 	
 	ray_direction = camera_forward * frame_distance
-		+ camera_up * (float)(pixel_y - window_height/2)
-		+ glm::cross(camera_forward, camera_up) * (float)(pixel_x - window_width/2);
+		+ camera_up * ((pixel_y - window_height/2)/frame_height)
+		+ glm::cross(camera_forward, camera_up) * ((pixel_x - window_width/2)/frame_width);
 	ray_origin = camera_position + ray_direction;
 	ray_direction = glm::normalize(ray_direction);
 
@@ -166,11 +181,18 @@ glm::vec3 castRay(int pixel_x, int pixel_y)
 	getRaycastParameter(ray_origin.z, ray_direction.z, coarse_cell_size, &dz, &tz);
 
 	// Coarse traversal step
+	if (tx == FLT_MAX) x = 0; else x = (int)(tx/coarse_factor);
+	if (ty == FLT_MAX) y = 0; else y = (int)(ty/coarse_factor);
+	if (tz == FLT_MAX) z = 0; else z = (int)(tz/coarse_factor);
+
+	if (tx >= coarse_grid_size || ty >= coarse_grid_size || tz >= coarse_grid_size)
+		return glm::vec3(-1, -1, -1);
+
 	while (get_coarse_voxel(x, y, z) == 0)
 	{
-		if (tx > ty)
+		if (tx < ty)
 		{
-			if (tx > tz)
+			if (tx < tz)
 			{
 				x += sign(dx);
 				t = tx;
@@ -189,7 +211,7 @@ glm::vec3 castRay(int pixel_x, int pixel_y)
 		}
 		else
 		{
-			if (ty > tz)
+			if (ty < tz)
 			{
 				y += sign(dy);
 				t = ty;
@@ -218,7 +240,7 @@ void getRaycastParameter(float ray_org, float ray_dir, float cell_size, float *d
 
 	if (ray_dir == 0)
 	{
-		*t = 0;
+		*t = FLT_MAX;
 		*d = 0;
 	}
 	else if (ray_dir > 0)
@@ -245,25 +267,28 @@ void getRaycastParameter(float ray_org, float ray_dir, float cell_size, float *d
 //-------------------------------------------------------------------------
 glm::vec3 fineStep(glm::vec3 ray_origin, glm::vec3 ray_direction)
 {
-	glm::vec3 result(-1, -1, -1);
 	float t, tx, ty, tz, dx, dy, dz;
 	int x, y, z;
 
-	getRaycastParameter(ray_origin.x, ray_direction.x, coarse_cell_size, &dx, &tx);
-	getRaycastParameter(ray_origin.y, ray_direction.y, coarse_cell_size, &dy, &ty);
-	getRaycastParameter(ray_origin.z, ray_direction.z, coarse_cell_size, &dz, &tz);
+	getRaycastParameter(ray_origin.x, ray_direction.x, cell_size, &dx, &tx);
+	getRaycastParameter(ray_origin.y, ray_direction.y, cell_size, &dy, &ty);
+	getRaycastParameter(ray_origin.z, ray_direction.z, cell_size, &dz, &tz);
 
 	// Coarse traversal step
-	while (get_coarse_voxel(x, y, z) == 0)
+	if (tx == FLT_MAX) x = 0; else x = (int)(tx);
+	if (ty == FLT_MAX) y = 0; else y = (int)(ty);
+	if (tz == FLT_MAX) z = 0; else z = (int)(tz);
+
+	while (get_voxel(x, y, z) == 0)
 	{
-		if (tx > ty)
+		if (tx < ty)
 		{
-			if (tx > tz)
+			if (tx < tz)
 			{
 				x += sign(dx);
 				t = tx;
 				tx += dx;
-				if (x >= coarse_grid_size || x < 0)
+				if (x >= grid_size || x < 0)
 					return glm::vec3(-1, -1, -1);
 			}
 			else
@@ -271,18 +296,18 @@ glm::vec3 fineStep(glm::vec3 ray_origin, glm::vec3 ray_direction)
 				z += sign(dz);
 				t = tz;
 				tz += dz;
-				if (z >= coarse_grid_size || z < 0)
+				if (z >= grid_size || z < 0)
 					return glm::vec3(-1, -1, -1);
 			}
 		}
 		else
 		{
-			if (ty > tz)
+			if (ty < tz)
 			{
 				y += sign(dy);
 				t = ty;
 				ty += dy;
-				if (y >= coarse_grid_size || y < 0)
+				if (y >= grid_size || y < 0)
 					return glm::vec3(-1, -1, -1);
 			}
 			else
@@ -290,14 +315,12 @@ glm::vec3 fineStep(glm::vec3 ray_origin, glm::vec3 ray_direction)
 				z += sign(dz);
 				t = tz;
 				tz += dz;
-				if (z >= coarse_grid_size || z < 0)
+				if (z >= grid_size || z < 0)
 					return glm::vec3(-1, -1, -1);
 			}
 		}
 	}
-	result = glm::vec3(.5f, 0, 0);
-	return result;
-
+	return glm::vec3(.5f, .5f, 0);
 }
 
 
@@ -322,9 +345,10 @@ void loadPointData()
 		start = end + 1; 
 		data = line.substr(start, end - start);
 		int z = (int)(stof(data) / cell_size);
-
-		get_voxel(x, y, z) = 1;
-		get_coarse_voxel(x / coarse_grid_size, y / coarse_grid_size, z / coarse_grid_size) = 1;
+		x += 10;
+		y += 10;
+		get_voxel(x, z, y) = 1;
+		get_coarse_voxel(x / coarse_grid_size, z / coarse_grid_size, y / coarse_grid_size) = 1;
 	}
 	file.close();
 }
