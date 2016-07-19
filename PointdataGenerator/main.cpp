@@ -52,7 +52,7 @@ void main(int argc, char** argv)
 		GRID_SIZE = atoi(argv[1]) + 1;
 
 	std::cout << "Generating points using Diamond-Square..." << std::endl;
-	std::vector<std::vector<Point>> points = diamondSquare(0.5);
+	std::vector<std::vector<Point>> points = diamondSquare(1);
 
 	//std::cout << "Adding noise..." << std::endl;
 	//addNoise(&points, noise);
@@ -72,7 +72,7 @@ METHODS
 std::vector<std::vector<Point>> diamondSquare(float startDeviation)
 {
 	std::default_random_engine gen(time(NULL));
-	std::uniform_real_distribution<float> dist(-startDeviation, startDeviation);
+	std::uniform_real_distribution<float> dist(0, startDeviation);
 	std::vector<std::vector<Point>> result(GRID_SIZE);
 
 
@@ -95,7 +95,7 @@ std::vector<std::vector<Point>> diamondSquare(float startDeviation)
 
 	//Diamond-Square Loop
 	std::cout << "Performing Diamond-Square Algorithm..." << std::endl;
-	dist = std::uniform_real_distribution<float>(-1, 1);
+	dist = std::uniform_real_distribution<float>(0, 1);
 	int count = 1;
 	for (int i = GRID_SIZE; i > 1; i /= 2)
 	{

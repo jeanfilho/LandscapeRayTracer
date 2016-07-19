@@ -22,7 +22,7 @@ int window_y;
 
 //  variables representing the window size
 int window_width = 512;
-int window_height = 256;
+int window_height = 512;
 
 //  variable representing the window title
 char *window_title = "Landscape Raytracer";
@@ -38,21 +38,25 @@ float coarse_cell_size;
 char *coarse_grid;
 
 // camera variables
-glm::vec3 camera_position(0,0,0);
-glm::vec3 camera_forward(1,0,0);
-glm::vec3 camera_up(0,1,0);
-float frame_distance = 10.0f;
+glm::vec3 camera_position(128,700,128);
+glm::vec3 camera_forward(0,-1,0);
+glm::vec3 camera_up(1,0,0);
+float frame_distance = 5;
 
 // pixel array
 glm::vec3 *pixel_array;
-float frame_height = 50;
-float frame_width = 100;
+float frame_width = 256;
+float frame_height = 256;
 
 // macros
 #define get_pixel(x, y) pixel_array[y * window_width + x]
 #define get_voxel(x, y, z) grid[z * grid_size * grid_size + y * grid_size + x]
 #define get_coarse_voxel(x, y, z) coarse_grid[z * coarse_grid_size * coarse_grid_size + y * coarse_grid_size + x]
 #define sign(a) ((a > 0) - (a < 0))
+
+// visualization parameters
+int max_height = INT_MIN;
+int min_height = INT_MAX;
 
 
 //-------------------------------------------------------------------------
@@ -147,11 +151,10 @@ void updatePixelBuffer()
 			{
 				get_pixel(x, y).r = 0;
 				get_pixel(x, y).g = 0;
-				get_pixel(x, y).b = .2f;
+				get_pixel(x, y).b = 0;
 			}
 		}
 }
-
 
 //-------------------------------------------------------------------------
 //  Cast a ray through the coarse grid
@@ -181,11 +184,17 @@ glm::vec3 castRay(int pixel_x, int pixel_y)
 	getRaycastParameter(ray_origin.z, ray_direction.z, coarse_cell_size, &dz, &tz);
 
 	// Coarse traversal step
-	if (tx == FLT_MAX) x = 0; else x = (int)(tx/coarse_factor);
-	if (ty == FLT_MAX) y = 0; else y = (int)(ty/coarse_factor);
-	if (tz == FLT_MAX) z = 0; else z = (int)(tz/coarse_factor);
+	if (tx < 0)	tx = FLT_MAX;
+	if (ty < 0) ty = FLT_MAX;
+	if (tz < 0)	tz = FLT_MAX;
+	
+	x = (int)(ray_origin.x / coarse_factor);
+	y = (int)(ray_origin.y / coarse_factor);
+	z = (int)(ray_origin.z / coarse_factor);
 
-	if (tx >= coarse_grid_size || ty >= coarse_grid_size || tz >= coarse_grid_size)
+	if (x >= coarse_grid_size || x < 0 
+		|| y >= coarse_grid_size || y < 0
+		|| z >= coarse_grid_size || z < 0)
 		return glm::vec3(-1, -1, -1);
 
 	while (get_coarse_voxel(x, y, z) == 0)
@@ -194,7 +203,7 @@ glm::vec3 castRay(int pixel_x, int pixel_y)
 		{
 			if (tx < tz)
 			{
-				x += sign(dx);
+				x += sign(ray_direction.x);
 				t = tx;
 				tx += dx;
 				if (x >= coarse_grid_size || x < 0)
@@ -202,7 +211,7 @@ glm::vec3 castRay(int pixel_x, int pixel_y)
 			}
 			else
 			{
-				z += sign(dz);
+				z += sign(ray_direction.z);
 				t = tz;
 				tz += dz;
 				if (z >= coarse_grid_size || z < 0)
@@ -213,7 +222,7 @@ glm::vec3 castRay(int pixel_x, int pixel_y)
 		{
 			if (ty < tz)
 			{
-				y += sign(dy);
+				y += sign(ray_direction.y);
 				t = ty;
 				ty += dy;
 				if (y >= coarse_grid_size || y < 0)
@@ -221,7 +230,7 @@ glm::vec3 castRay(int pixel_x, int pixel_y)
 			}
 			else
 			{
-				z += sign(dz);
+				z += sign(ray_direction.z);
 				t = tz;
 				tz += dz;
 				if (z >= coarse_grid_size || z < 0)
@@ -230,9 +239,12 @@ glm::vec3 castRay(int pixel_x, int pixel_y)
 		}
 	}
 
-	return fineStep(ray_origin + glm::vec3(tx,ty,tz), ray_direction);
+	return fineStep(ray_origin + ray_direction*t, ray_direction);
 }
 
+//-------------------------------------------------------------------------
+// Set the parameters for the ray casting
+//-------------------------------------------------------------------------
 void getRaycastParameter(float ray_org, float ray_dir, float cell_size, float *d, float *t)
 {
 	float org_grid = ray_org - grid_origin.x;
@@ -240,7 +252,7 @@ void getRaycastParameter(float ray_org, float ray_dir, float cell_size, float *d
 
 	if (ray_dir == 0)
 	{
-		*t = FLT_MAX;
+		*t = -1;
 		*d = 0;
 	}
 	else if (ray_dir > 0)
@@ -275,9 +287,16 @@ glm::vec3 fineStep(glm::vec3 ray_origin, glm::vec3 ray_direction)
 	getRaycastParameter(ray_origin.z, ray_direction.z, cell_size, &dz, &tz);
 
 	// Coarse traversal step
-	if (tx == FLT_MAX) x = 0; else x = (int)(tx);
-	if (ty == FLT_MAX) y = 0; else y = (int)(ty);
-	if (tz == FLT_MAX) z = 0; else z = (int)(tz);
+	if (tx < 0)	tx = FLT_MAX;
+	if (ty < 0) ty = FLT_MAX;
+	if (tz < 0)	tz = FLT_MAX;
+
+	x = (int)(ray_origin.x);
+	y = (int)(ray_origin.y);
+	z = (int)(ray_origin.z);
+	
+	if (x >= grid_size || y >= grid_size || z >= grid_size)
+		return glm::vec3(-1, -1, -1);
 
 	while (get_voxel(x, y, z) == 0)
 	{
@@ -285,7 +304,7 @@ glm::vec3 fineStep(glm::vec3 ray_origin, glm::vec3 ray_direction)
 		{
 			if (tx < tz)
 			{
-				x += sign(dx);
+				x += sign(ray_direction.x);
 				t = tx;
 				tx += dx;
 				if (x >= grid_size || x < 0)
@@ -293,7 +312,7 @@ glm::vec3 fineStep(glm::vec3 ray_origin, glm::vec3 ray_direction)
 			}
 			else
 			{
-				z += sign(dz);
+				z += sign(ray_direction.z);
 				t = tz;
 				tz += dz;
 				if (z >= grid_size || z < 0)
@@ -304,7 +323,7 @@ glm::vec3 fineStep(glm::vec3 ray_origin, glm::vec3 ray_direction)
 		{
 			if (ty < tz)
 			{
-				y += sign(dy);
+				y += sign(ray_direction.y);
 				t = ty;
 				ty += dy;
 				if (y >= grid_size || y < 0)
@@ -312,7 +331,7 @@ glm::vec3 fineStep(glm::vec3 ray_origin, glm::vec3 ray_direction)
 			}
 			else
 			{
-				z += sign(dz);
+				z += sign(ray_direction.z);
 				t = tz;
 				tz += dz;
 				if (z >= grid_size || z < 0)
@@ -320,9 +339,13 @@ glm::vec3 fineStep(glm::vec3 ray_origin, glm::vec3 ray_direction)
 			}
 		}
 	}
-	return glm::vec3(0, .5f, 0);
+	float r, g, b;
+	float value = (float)y/(max_height - min_height);
+	r = 1.0f;
+	g = value;
+	b = 0;
+	return glm::vec3(r, g, b);
 }
-
 
 //-------------------------------------------------------------------------
 //  Load point data - testing purposes only
@@ -331,24 +354,31 @@ void loadPointData()
 {
 	std::ifstream file("../Data/data");
 	std::string line, data;
+	int x, y, z, coarse_x, coarse_y, coarse_z; 
 	while (std::getline(file, line) && !line.empty())
 	{
-		int start = 0, end = line.find(",");
+		int start = 0, end = line.find(" ");
 		data = line.substr(start, end - start);
-		int x = (int)(stof(data) / cell_size);
+		x = (int)(stof(data) / cell_size);
 
 		start = end + 1;
-		end = line.find(",", start + 1);
+		end = line.find(" ", start + 1);
 		data = line.substr(start, end - start);
-		int y = (int)(stof(data) / cell_size);
+		y = (int)(stof(data) / cell_size);
 
 		start = end + 1; 
 		data = line.substr(start, end - start);
-		int z = (int)(stof(data) / cell_size);
-		x += 10;
-		y += 10;
+		z = (int)(stof(data) / cell_size);
+
+		coarse_x = (int)(x / coarse_cell_size);
+		coarse_y = (int)(y / coarse_cell_size);
+		coarse_z = (int)(z / coarse_cell_size);
+
 		get_voxel(x, z, y) = 1;
-		get_coarse_voxel(x / coarse_grid_size, z / coarse_grid_size, y / coarse_grid_size) = 1;
+		get_coarse_voxel(coarse_x, coarse_z, coarse_y) = 1;
+
+		if (z > max_height) max_height = z;
+		if (z < min_height) min_height = z;
 	}
 	file.close();
 }
