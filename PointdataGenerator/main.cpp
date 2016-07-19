@@ -24,7 +24,6 @@ struct Point
 		y = b;
 		z = c;
 	}
-
 	float x;
 	float y;
 	float z;
@@ -46,7 +45,7 @@ void main(int argc, char** argv)
 {
 	float noise = 0.5;
 	float roughness = 1;
-	float scaleFactor = 100;
+	float scaleFactor = 10;
 	std::string filename = "data";
 
 	if (argc > 1)
@@ -55,8 +54,8 @@ void main(int argc, char** argv)
 	std::cout << "Generating points using Diamond-Square..." << std::endl;
 	std::vector<std::vector<Point>> points = diamondSquare(0.5);
 
-	std::cout << "Adding noise..." << std::endl;
-	addNoise(&points, noise);
+	//std::cout << "Adding noise..." << std::endl;
+	//addNoise(&points, noise);
 
 	std::cout << "Scaling points..." << std::endl;
 	scaleData(&points, scaleFactor);
@@ -72,7 +71,7 @@ METHODS
 ************************************/
 std::vector<std::vector<Point>> diamondSquare(float startDeviation)
 {
-	std::default_random_engine gen;
+	std::default_random_engine gen(time(NULL));
 	std::uniform_real_distribution<float> dist(-startDeviation, startDeviation);
 	std::vector<std::vector<Point>> result(GRID_SIZE);
 
@@ -117,7 +116,13 @@ std::vector<std::vector<Point>> diamondSquare(float startDeviation)
 
 void diamondStep(int x, int y, int stepSize, float r, std::vector<std::vector<Point>> *grid)
 {
-	(*grid)[x][y].z =
+	float tl, tr, bl, br;
+	br = (*grid)[x + stepSize][y + stepSize].z;
+	bl = (*grid)[x - stepSize][y + stepSize].z;
+	tr = (*grid)[x + stepSize][y - stepSize].z;
+	tl = (*grid)[x - stepSize][y - stepSize].z;
+
+	(*grid)[x][y].z = 
 		((*grid)[x + stepSize][y + stepSize].z
 			+ (*grid)[x - stepSize][y + stepSize].z
 			+ (*grid)[x + stepSize][y - stepSize].z
@@ -126,26 +131,26 @@ void diamondStep(int x, int y, int stepSize, float r, std::vector<std::vector<Po
 
 void squareStep(int x, int y, int stepSize, float r, std::vector<std::vector<Point>> *grid)
 {
-	int left = 0, right = 0, top = 0, bottom = 0;
+	float left = 0, right = 0, top = 0, bottom = 0;
 	int count = 0;
 	if (x > 0)
 	{
-		left = (int)(*grid)[x - stepSize][y].z;
+		left = (*grid)[x - stepSize][y].z;
 		count++;
 	}
 	if (x < GRID_SIZE - 1)
 	{
-		right = (int)(*grid)[x + stepSize][y].z;
+		right = (*grid)[x + stepSize][y].z;
 		count++;
 	}
 	if (y > 0)
 	{
-		top = (int)(*grid)[x][y - stepSize].z;
+		top = (*grid)[x][y - stepSize].z;
 		count++;
 	}
 	if (y < GRID_SIZE - 1)
 	{
-		bottom = (int)(*grid)[x][y + stepSize].z;
+		bottom = (*grid)[x][y + stepSize].z;
 		count++;
 	}
 
@@ -187,13 +192,13 @@ void savePointData(std::vector<std::vector<Point>>* grid, std::string filename)
 		for each(auto &point in row)
 		{
 			std::stringstream stream;
-			stream << std::fixed << std::setprecision(7) << point.x << ",";
-			stream << std::fixed << std::setprecision(7) << point.y << ",";
+			stream << std::fixed << std::setprecision(7) << point.x << " ";
+			stream << std::fixed << std::setprecision(7) << point.y << " ";
 			stream << std::fixed << std::setprecision(7) << point.z << std::endl;
 			output << stream.str();
 		}
 	}
-
+	
 	output.close();
 
 	std::cout << "File saved in /Data/" << filename << std::endl;
