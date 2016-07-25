@@ -147,8 +147,6 @@ glm::ivec3 Grid<T>::castRay(const glm::vec3 &ray_origin, const glm::vec3 &ray_di
 			}
 		}
 	}
-	//DEBUG
-	glm::vec3 old_origin = ray_origin;
 	*intersection = ray_origin + (t_total + 1) * ray_direction;
 
 	return result;
