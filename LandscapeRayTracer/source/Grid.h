@@ -15,6 +15,7 @@ public:
 
 	T & operator()(int x, int y, int z);
 	T & operator()(glm::ivec3 idx);
+	T & operator=(const T &obj);
 
 	/*-------------------------------------------------------------------------
 	Cast a ray through the grid
@@ -34,7 +35,6 @@ public:
 	const glm::vec3 origin;
 
 	const T unitialized_value;
-	T *grid;
 
 protected:
 
@@ -51,10 +51,9 @@ protected:
 		const glm::vec3 &ray_direction,
 		glm::vec3 *t,
 		glm::vec3 *d);
+
+	T *grid;
 };
-
-
-#include "Grid.h"
 
 template<class T>
 Grid<T>::Grid(glm::vec3 origin, int resolution, float size, T unitialized_value)
@@ -62,13 +61,13 @@ Grid<T>::Grid(glm::vec3 origin, int resolution, float size, T unitialized_value)
 {
 	grid = new T[resolution*resolution*resolution];
 	for (int i = 0; i < resolution*resolution*resolution; i++)
-		grid[i] = unitialized_value;
+		grid[i] = this->unitialized_value;
 }
 
 template<class T>
 Grid<T>::~Grid()
 {
-	delete(grid);
+	delete [] grid;
 }
 
 template<class T>
@@ -84,12 +83,21 @@ T & Grid<T>::operator()(glm::ivec3 idx)
 }
 
 template<class T>
-glm::ivec3 Grid<T>::castRay(const glm::vec3 &ray_origin, const glm::vec3 &ray_direction, glm::vec3 *intersection)
+inline T & Grid<T>::operator=(const T & obj)
+{
+	T temp(obj);
+	std::swap(temp.grid, grid);
+	return *this;
+}
+
+template<class T>
+glm::ivec3 Grid<T>::castRay(const glm::vec3 &ray_origin, const glm::vec3 &ray_dir, glm::vec3 *intersection)
 {
 	glm::ivec3 result;
-	glm::vec3 t, d;
-	glm::bvec3 isZero;
+	glm::vec3 t, d, ray_direction;
 	float t_total = 0;
+
+	ray_direction = glm::normalize(ray_dir);
 
 	result = getRaycastParameters(ray_origin, ray_direction, &t, &d);
 
@@ -105,7 +113,7 @@ glm::ivec3 Grid<T>::castRay(const glm::vec3 &ray_origin, const glm::vec3 &ray_di
 			if (t.x < t.z)
 			{
 				result.x += (int)glm::sign(ray_direction.x);
-				t_total += t.x;
+				t_total = t.x;
 				t.x += d.x;
 				if (result.x >= resolution || result.x < 0)
 					return glm::vec3(-1, -1, -1);
@@ -113,7 +121,7 @@ glm::ivec3 Grid<T>::castRay(const glm::vec3 &ray_origin, const glm::vec3 &ray_di
 			else
 			{
 				result.z += (int)glm::sign(ray_direction.z);
-				t_total += t.z;
+				t_total = t.z;
 				t.z += d.z;
 				if (result.z >= resolution || result.z < 0)
 					return glm::vec3(-1, -1, -1);
@@ -124,7 +132,7 @@ glm::ivec3 Grid<T>::castRay(const glm::vec3 &ray_origin, const glm::vec3 &ray_di
 			if (t.y < t.z)
 			{
 				result.y += (int)glm::sign(ray_direction.y);
-				t_total += t.y;
+				t_total = t.y;
 				t.y += d.y;
 				if (result.y >= resolution || result.y < 0)
 					return glm::vec3(-1, -1, -1);
@@ -132,15 +140,16 @@ glm::ivec3 Grid<T>::castRay(const glm::vec3 &ray_origin, const glm::vec3 &ray_di
 			else
 			{
 				result.z += (int)glm::sign(ray_direction.z);
-				t_total += t.z;
+				t_total = t.z;
 				t.z += d.z;
 				if (result.z >= resolution || result.z < 0)
 					return glm::vec3(-1, -1, -1);
 			}
 		}
 	}
-
-	*intersection = ray_origin + t_total * ray_direction;
+	//DEBUG
+	glm::vec3 old_origin = ray_origin;
+	*intersection = ray_origin + (t_total + 1) * ray_direction;
 
 	return result;
 }
@@ -149,11 +158,15 @@ template<class T>
 glm::ivec3 Grid<T>::getRaycastParameters(const glm::vec3 & ray_origin, const glm::vec3 & ray_direction, glm::vec3 *t, glm::vec3 *d)
 {
 	float origin_grid, origin_cell;
+	int i;
 	glm::ivec3 result;
 
-	for (int i = 0; i < t->length(); i++)
+	for (i = 0; i < ray_origin.length(); i++)
+		result[i] = int((ray_origin[i] - origin[i]) / cell_size);
+
+	for (i = 0; i < t->length(); i++)
 	{
-		origin_grid = ray_origin[i] - ray_origin[i];
+		origin_grid = ray_origin[i] - origin[i];
 		origin_cell = origin_grid / cell_size;
 
 		if (ray_direction[i] == 0)

@@ -1,11 +1,13 @@
 #pragma once
 #include "glm\common.hpp"
+#include "glm\geometric.hpp"
 
 class Camera
 {
 public:
 	Camera(glm::vec3 position, glm::vec3 forward, glm::vec3 up, float frame_distance, float frame_height, float frame_width)
-		: position(position), _forward(forward), _up(up), _frame_distance(frame_distance), _frame_height(frame_height), _frame_width(frame_width) {}
+		: position(position), _forward(glm::normalize(forward)), _up(glm::normalize(up)), _right(glm::normalize(glm::cross(_up,_forward))),
+		_frame_distance(frame_distance), _frame_height(frame_height), _frame_width(frame_width){}
 	~Camera() {};
 
 	void rotate(glm::vec3 axis, float angle);
