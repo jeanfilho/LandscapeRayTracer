@@ -29,8 +29,7 @@ int window_height = 512;
 //  variable representing the window title
 char *window_title = "Landscape Raytracer";
 
-Grid<Grid<PointData*>*> coarse_grid(glm::vec3(0, 0, 0), 1000, 10000);
-Grid<PointData*> grid(glm::vec3(0, 0, 0), 1000, 1000);
+Grid<Grid<PointData*>*> grid(glm::vec3(0, 0, 0), 10, 1000, NULL);
 
 Camera cam(glm::vec3(128, 700, 128), glm::vec3(0, -1, 0), glm::vec3(1, 0, 0), 5, 256, 256);
 glm::vec3 *pixel_array;
@@ -120,28 +119,28 @@ void updatePixelBuffer()
 		for (int x = 0; x < window_width; x++)
 		{
 			glm::vec3 ray_origin, ray_direction;
+			glm::ivec3 cell;
 
 			ray_direction = cam.forward * cam.frame_distance
 				+ cam.up * (float)(y - window_height / 2) / cam.frame_height
 				+ -cam.right * (float)(x - window_width / 2) / cam.frame_width;
 			ray_origin = cam.position + ray_direction;
 
-			glm::ivec3 cell = grid.castRay(ray_origin, ray_direction);
-			Grid<bool> *subgrid = grid(cell);
-			cell = subgrid->castRay(ray_origin, ray_direction);
+			cell = grid.castRay(ray_origin, ray_direction, &ray_origin);
+			if (cell.x < 0) {
+				get_pixel(x, y) = glm::vec3(0,0,0);
+				return;
+			}
 
-			if((*subgrid)(cell))
+			Grid<PointData*> *subgrid = grid(cell);
+			cell = subgrid->castRay(ray_origin, ray_direction, &ray_origin);
+			if(cell.x < 0)
 			{
-				get_pixel(x, y).r = 1.0f;
-				get_pixel(x, y).g = 1.0f + cell.z/(max_height - min_height);
-				get_pixel(x, y).b = 0;
+				get_pixel(x, y) = glm::vec3(0,0,0);
+				return;
 			}
-			else
-			{
-				get_pixel(x, y).r = 0;
-				get_pixel(x, y).g = 0;
-				get_pixel(x, y).b = 0;
-			}
+
+			get_pixel(x, y) = (*subgrid)(cell)->color;
 		}
 }
 
@@ -153,28 +152,43 @@ void loadPointData()
 {
 	std::ifstream file("../Data/data");
 	std::string line, data;
-	int x, y, z, coarse_x, coarse_y, coarse_z; 
+	float x, y, z;
+	int
+		coarse_x, coarse_y, coarse_z,
+		fine_x, fine_y, fine_z;
+
+	Grid<PointData*>* subgrid;
+	Grid<Grid<PointData*>*> global_grid = grid;
 	while (std::getline(file, line) && !line.empty())
 	{
-		int start = 0, end = line.find(" ");
+		size_t start = 0, end = line.find(" ");
 		data = line.substr(start, end - start);
-		x = (int)(stof(data) / cell_size);
+		x = (stof(data));
 
 		start = end + 1;
 		end = line.find(" ", start + 1);
 		data = line.substr(start, end - start);
-		y = (int)(stof(data) / cell_size);
+		y = (stof(data));
 
 		start = end + 1; 
 		data = line.substr(start, end - start);
-		z = (int)(stof(data) / cell_size);
+		z = (stof(data));
 
-		coarse_x = (int)(x / grid.cell_size);
-		coarse_y = (int)(y / grid.cell_size);
-		coarse_z = (int)(z / grid.cell_size);
+		coarse_x = int(x / grid.cell_size);
+		coarse_y = int(y / grid.cell_size);
+		coarse_z = int(z / grid.cell_size);
 
-		*grid(x, y, z) = PointData(glm::vec3(0, 0, 0));
-		*coarse_grid(coarse_x, coarse_y, coarse_z) = std::pair<bool,PointData>(true, grid(x, y, z)));
+		if (grid(coarse_x, coarse_y, coarse_z) == NULL)
+			grid(coarse_x, coarse_y, coarse_z) = new Grid<PointData*>(glm::vec3(coarse_x, coarse_y, coarse_z), 100, 100, NULL);
+
+		subgrid = grid(coarse_x, coarse_y, coarse_z);
+		fine_x = int((x - coarse_x)	/ subgrid->cell_size);
+		fine_y = int((y - coarse_y) / subgrid->cell_size);
+		fine_z = int((z - coarse_z) / subgrid->cell_size);
+
+		if((*subgrid)(fine_x, fine_y, fine_z) == NULL)
+			(*subgrid)(fine_x, fine_y, fine_z) = &PointData(glm::vec3(0, 0, 0));
+
 
 		if (z > max_height) max_height = z;
 		if (z < min_height) min_height = z;
@@ -197,7 +211,5 @@ void centerOnScreen()
 //-------------------------------------------------------------------------
 void exit()
 {
-	delete(grid);
-	delete(coarse_grid);
 	delete(pixel_array);
 }

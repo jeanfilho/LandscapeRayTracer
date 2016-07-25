@@ -1,4 +1,6 @@
 #pragma once
+#include <glm\common.hpp>
+
 class PointData
 {
 public:

@@ -1,11 +1,8 @@
 #include "PointData.h"
 
-
-
-PointData::PointData()
+PointData::PointData(glm::vec3 color)
 {
 }
-
 
 PointData::~PointData()
 {
