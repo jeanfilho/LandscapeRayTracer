@@ -1,8 +1,7 @@
 /*-------------------------------------------------------------------
-Coordinate system: Left-handed, X(right) cross Z(forward) = Y (up)
-
-
+Coordinate system: Left-handed, +X(right) cross +Z(forward) = +Y (up)
 ---------------------------------------------------------------------*/
+
 #include <gl/freeglut.h>
 #include <glm/common.hpp>
 #include <glm/geometric.hpp>
@@ -10,10 +9,12 @@ Coordinate system: Left-handed, X(right) cross Z(forward) = Y (up)
 #include <string>
 #include <iostream>
 #include <utility>
+#include <chrono>
 
 #include "Grid.h"
 #include "PointData.h"
 #include "Camera.h"
+#include "CudaWorker.h";
 
 void init();
 void display(void);
@@ -45,6 +46,11 @@ glm::vec3 *pixel_array;
 // visualization parameters
 float max_height = FLT_MIN;
 float min_height = FLT_MAX;
+
+// clock
+std::chrono::system_clock sys_clock;
+std::chrono::time_point<std::chrono::system_clock> last_frame, current_frame;
+std::chrono::duration<float> delta_time;
 
 
 //-------------------------------------------------------------------------
@@ -88,6 +94,8 @@ void init()
 	pixel_array = new glm::vec3[window_height * window_width]{ glm::vec3(0,0,0) };
 	loadPointData();
 
+	current_frame = last_frame = sys_clock.now();
+
 	std::cout << "Set up finished. Starting ray tracing..." << std::endl;
 }
 
@@ -98,15 +106,22 @@ void init()
 int frame_number = 0;
 void display(void)
 {
+	current_frame = sys_clock.now();
+	delta_time = current_frame - last_frame;
+	last_frame = current_frame;
+
+	frame_number++;
+	std::cout << "Frame " << frame_number;
+	std::cout << " - FPS " << 1/delta_time.count() << std::endl;
+
 	//  Clear the window or more specifically the frame buffer...
 	//  This happens by replacing all the contents of the frame
 	//  buffer by the clear color (black in our case)
 	glClear(GL_COLOR_BUFFER_BIT);
 
 	//  Cast rays
-	updatePixelBuffer();
-	frame_number++;
-	std::cout << "Frame " << frame_number << std::endl;
+	//updatePixelBuffer();
+	CudaWorker::par_castRay(pixel_array, &cam, &grid, window_height, window_width);
 
 	//  Draw Pixels
 	glDrawPixels(window_width, window_height, GL_RGB, GL_FLOAT, pixel_array);
