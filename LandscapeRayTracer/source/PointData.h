@@ -1,12 +1,23 @@
 #pragma once
-#include <glm\common.hpp>
+#include <glm\glm.hpp>
 
 class PointData
 {
 public:
-	PointData(glm::vec3 color) : color(color) {}
+	__host__ __device__
+	PointData(glm::vec3 position, glm::vec3 color) : color(color), position(position) {}
+
+	__host__ __device__
 	~PointData() {}
 
-	const glm::vec3 color;
+	__host__ __device__
+	PointData& operator=(const PointData& rs)
+	{
+		PointData temp(rs);
+		swap(temp, *this);
+		return *this;
+	}
+
+	const glm::vec3 color, position;
 };
 

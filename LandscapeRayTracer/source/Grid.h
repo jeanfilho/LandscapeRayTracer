@@ -1,6 +1,11 @@
 #pragma once
-#include <glm\common.hpp>
+#include <glm\glm.hpp>
 #include <utility>
+
+#include "cuda.h"
+#include "cuda_runtime.h"
+#include "cuda_runtime_api.h"
+
 /*
 This class describes a NxNxN Grid
 

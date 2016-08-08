@@ -1,27 +1,29 @@
 /*-------------------------------------------------------------------
 Coordinate system: Left-handed, +X(right) cross +Z(forward) = +Y (up)
 ---------------------------------------------------------------------*/
-
-#include <gl/freeglut.h>
-#include <glm/common.hpp>
-#include <glm/geometric.hpp>
 #include <fstream>
 #include <string>
 #include <iostream>
 #include <utility>
 #include <chrono>
 
+#include <gl/freeglut.h>
+#include <glm/glm.hpp>
+
+#include <cuda_runtime.h>
+#include "thrust\device_vector.h"
+#include "thrust\host_vector.h"
+
 #include "Grid.h"
 #include "PointData.h"
 #include "Camera.h"
-#include "CudaWorker.h";
+#include "CudaWorker.h"
 
 void init();
 void display(void);
 void centerOnScreen();
 void updatePixelBuffer();
 void exit();
-void loadPointData();
 
 
 //  define the window position on screen
@@ -39,6 +41,8 @@ Grid<Grid<PointData*>*> grid(glm::vec3(0, 0, 0), 100, 10000, NULL);
 
 Camera cam(glm::vec3(128, 400, 128), glm::vec3(0, -1, 0), glm::vec3(0, 0, 1), 5, 256, 256);
 glm::vec3 *pixel_array;
+
+thrust::host_vector<PointData> points;
 
 // macros
 #define get_pixel(x, y) pixel_array[y * window_width + x]
@@ -90,9 +94,10 @@ void init()
 	//  Set the frame buffer clear color to black. 
 	glClearColor(0.0, 0.0, 0.0, 0.0);
 
-	//initialize grids
+	//initialize point vector and pixel array
 	pixel_array = new glm::vec3[window_height * window_width]{ glm::vec3(0,0,0) };
-	loadPointData();
+	points = thrust::host_vector<PointData>();
+	CudaWorker::loadPoints(&max_height, &min_height, &points);
 
 	current_frame = last_frame = sys_clock.now();
 
@@ -120,8 +125,7 @@ void display(void)
 	glClear(GL_COLOR_BUFFER_BIT);
 
 	//  Cast rays
-	//updatePixelBuffer();
-	CudaWorker::par_castRay(pixel_array, &cam, &grid, window_height, window_width);
+	updatePixelBuffer();
 
 	//  Draw Pixels
 	glDrawPixels(window_width, window_height, GL_RGB, GL_FLOAT, pixel_array);
@@ -168,58 +172,6 @@ void updatePixelBuffer()
 				}
 			}
 		}
-}
-
-
-//-------------------------------------------------------------------------
-//  Load point data - testing purposes only
-//-------------------------------------------------------------------------
-void loadPointData()
-{
-	std::ifstream file("../Data/data");
-	std::string line, data;
-	float x, y, z;
-	int
-		coarse_x, coarse_y, coarse_z,
-		fine_x, fine_y, fine_z;
-
-	Grid<PointData*>* subgrid;
-
-	while (std::getline(file, line) && !line.empty())
-	{
-		size_t start = 0, end = line.find(" ");
-		data = line.substr(start, end - start);
-		x = (stof(data));
-
-		start = end + 1;
-		end = line.find(" ", start + 1);
-		data = line.substr(start, end - start);
-		z = (stof(data));
-
-		start = end + 1;
-		data = line.substr(start, end - start);
-		y = (stof(data));
-
-		coarse_x = int(x / grid.cell_size);
-		coarse_y = int(y / grid.cell_size);
-		coarse_z = int(z / grid.cell_size);
-
-		fine_x = int(x - coarse_x * grid.cell_size);
-		fine_y = int(y - coarse_y * grid.cell_size);
-		fine_z = int(z - coarse_z * grid.cell_size);
-
-		if (grid(coarse_x, coarse_y, coarse_z) == NULL)
-			grid(coarse_x, coarse_y, coarse_z) = new Grid<PointData*>(glm::vec3(coarse_x, coarse_y, coarse_z) * grid.cell_size, 100, grid.cell_size, NULL);
-
-		subgrid = grid(coarse_x, coarse_y, coarse_z);
-
-		if ((*subgrid)(fine_x, fine_y, fine_z) == NULL)
-			(*subgrid)(fine_x, fine_y, fine_z) = new PointData(glm::vec3(1.0f, 1.0f, 0));
-
-		if (y > max_height) max_height = z;
-		if (y < min_height) min_height = z;
-	}
-	file.close();
 }
 
 //-------------------------------------------------------------------------

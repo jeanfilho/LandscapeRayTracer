@@ -1,6 +1,5 @@
 #pragma once
-#include "glm\common.hpp"
-#include "glm\geometric.hpp"
+#include "glm\glm.hpp"
 
 class Camera
 {
