@@ -25,11 +25,10 @@ using namespace std;
 class CudaWorker
 {
 public:
-
-	static cudaError_t loadPoints(float* max_height, float *min_height, thrust::host_vector<PointData> *points);
+	static cudaError_t loadPoints(float* max_height, float *min_height, int window_height, int window_width, Camera cam);
 	static cudaError_t startRoutine(int window_height, int window_witdh);
 	static cudaError_t exitRoutine();
-
+	
 private:
 	CudaWorker() {}
 	~CudaWorker() {}

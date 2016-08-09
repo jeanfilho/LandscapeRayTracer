@@ -37,12 +37,9 @@ int window_height = 512;
 //  variable representing the window title
 char *window_title = "Landscape Raytracer";
 
-Grid<Grid<PointData*>*> grid(glm::vec3(0, 0, 0), 100, 10000, NULL);
 
 Camera cam(glm::vec3(128, 400, 128), glm::vec3(0, -1, 0), glm::vec3(0, 0, 1), 5, 256, 256);
 glm::vec3 *pixel_array;
-
-thrust::host_vector<PointData> points;
 
 // macros
 #define get_pixel(x, y) pixel_array[y * window_width + x]
@@ -96,8 +93,7 @@ void init()
 
 	//initialize point vector and pixel array
 	pixel_array = new glm::vec3[window_height * window_width]{ glm::vec3(0,0,0) };
-	points = thrust::host_vector<PointData>();
-	CudaWorker::loadPoints(&max_height, &min_height, &points);
+	CudaWorker::loadPoints(&max_height, &min_height, window_height, window_width, cam);
 
 	current_frame = last_frame = sys_clock.now();
 
@@ -189,5 +185,7 @@ void centerOnScreen()
 //-------------------------------------------------------------------------
 void exit()
 {
+
+	CudaWorker::exitRoutine();
 	delete(pixel_array);
 }

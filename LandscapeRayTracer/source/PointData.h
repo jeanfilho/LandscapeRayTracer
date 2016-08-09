@@ -1,5 +1,6 @@
 #pragma once
 #include <glm\glm.hpp>
+#include <thrust\swap.h>
 
 class PointData
 {
@@ -14,7 +15,7 @@ public:
 	PointData& operator=(const PointData& rs)
 	{
 		PointData temp(rs);
-		swap(temp, *this);
+		thrust::swap(temp, *this);
 		return *this;
 	}
 

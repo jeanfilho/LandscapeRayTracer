@@ -1,5 +1,6 @@
 #pragma once
 #include <glm\glm.hpp>
+#include <thrust\swap.h>
 #include <utility>
 
 #include "cuda.h"
@@ -33,11 +34,9 @@ public:
 	-------------------------------------------------------------------------*/
 	glm::ivec3 castRay(const glm::vec3 &ray_origin, const glm::vec3 &ray_direction, glm::vec3 *intersection);
 
-
-
 	const int resolution;
 	const float size, cell_size;
-	const glm::vec3 origin;
+	glm::vec3 origin;
 
 	const T unitialized_value;
 
@@ -91,7 +90,7 @@ template<class T>
 inline T & Grid<T>::operator=(const T & obj)
 {
 	T temp(obj);
-	std::swap(temp.grid, grid);
+	thrust::swap(temp.grid, grid);
 	return *this;
 }
 
