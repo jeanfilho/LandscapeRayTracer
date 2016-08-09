@@ -12,16 +12,17 @@ This class describes a NxNxN Grid
 
 Implementation: http://www.scratchapixel.com/lessons/advanced-rendering/introduction-acceleration-structure/grid
 */
-
 template<class T> class Grid
 {
 public:
-	Grid<T>(glm::vec3 origin, int resolution, float size, T unitialized_value);
-	~Grid<T>();
+	
+	__host__ __device__ Grid<T>(glm::vec3 origin, int resolution, float size, T unitialized_value);
+	__host__ __device__ ~Grid<T>();
 
-	T & operator()(int x, int y, int z);
-	T & operator()(glm::ivec3 idx);
-	T & operator=(const T &obj);
+	inline __host__ __device__	T & operator()(int x, int y, int z);
+	inline __host__ __device__ T & operator()(glm::ivec3 idx);
+	inline __host__ __device__ T & operator=(const T &obj);
+	inline __host__ __device__ T & operator=(T obj);
 
 	/*-------------------------------------------------------------------------
 	Cast a ray through the grid
@@ -32,7 +33,7 @@ public:
 		- coordinates of the intersection
 		- glm::ivec3(-1,-1,-1) otherwise 
 	-------------------------------------------------------------------------*/
-	glm::ivec3 castRay(const glm::vec3 &ray_origin, const glm::vec3 &ray_direction, glm::vec3 *intersection);
+	__host__ __device__ glm::ivec3 castRay(const glm::vec3 &ray_origin, const glm::vec3 &ray_direction, glm::vec3 *intersection);
 
 	const int resolution;
 	const float size, cell_size;
@@ -65,7 +66,7 @@ Grid<T>::Grid(glm::vec3 origin, int resolution, float size, T unitialized_value)
 {
 	grid = new T[resolution*resolution*resolution];
 	for (int i = 0; i < resolution*resolution*resolution; i++)
-		grid[i] = this->unitialized_value;
+		grid[i] = unitialized_value;
 }
 
 template<class T>
@@ -90,7 +91,14 @@ template<class T>
 inline T & Grid<T>::operator=(const T & obj)
 {
 	T temp(obj);
-	thrust::swap(temp.grid, grid);
+	thrust::swap(temp, *this);
+	return *this;
+}
+
+template<class T>
+inline T & Grid<T>::operator=(T obj)
+{
+	thrust::swap(obj, *this);
 	return *this;
 }
 

@@ -6,9 +6,9 @@ using namespace std;
 
 __device__ int d_window_height, d_window_width;
 __device__ bool continueLoop = true;
-glm::vec3 *d_pixel_array;
+__device__ glm::vec3 *d_pixel_array;
 __device__ Grid<Grid<bool>*> *d_grid;
-Camera *d_cam;
+__device__ Camera *d_cam;
 
 __global__
 void mainLoop()
@@ -16,7 +16,11 @@ void mainLoop()
 	while (continueLoop)
 	{
 
-	}	
+	}
+
+	free(d_cam);
+	free(d_grid);
+	free(d_pixel_array);
 }
 
 __global__
@@ -25,7 +29,7 @@ void setUp(PointData* parray, int psize, int wh, int ww)
 	d_window_height = wh;
 	d_window_width = ww;
 
-	*d_grid = Grid<Grid<bool>*>(glm::vec3(0, 0, 0), 100, 10000, NULL);
+	d_grid = new Grid<Grid<bool>*>(glm::vec3(0, 0, 0), 100, 10000, NULL);
 	float x, y, z;
 	int	coarse_x, coarse_y, coarse_z,
 		fine_x, fine_y, fine_z;
@@ -61,12 +65,8 @@ void setUp(PointData* parray, int psize, int wh, int ww)
 */
 cudaError_t CudaWorker::loadPoints(float *max_height, float *min_height, int window_height, int window_width, Camera cam)
 {
-	cudaError_t result;
-
-	cudaMalloc(&d_pixel_array, window_height*window_width*sizeof(glm::vec3));
-	cudaMalloc(&d_grid, sizeof(Grid<Grid<PointData*>*>));
-	cudaMalloc(&d_cam, sizeof(Camera));
-
+	cudaError_t result = cudaSuccess;
+	
 	thrust::device_vector<PointData> d_points;
 	ifstream file("../Data/data");
 	string line, data;
@@ -94,14 +94,8 @@ cudaError_t CudaWorker::loadPoints(float *max_height, float *min_height, int win
 	}
 	file.close();
 
-	result = cudaMalloc(&d_grid, sizeof(Grid<Grid<PointData*>*>));
-	if (result != cudaSuccess)
-	{
-		cout << "Error allocating grid on device: cudaError " << result;
-		return result;
-	}
-
-	setUp << <1, 1 >> >(thrust::raw_pointer_cast(d_points.data()), d_points.size(), window_height, window_width);
+	setUp << <1, 1, 0 >> >(thrust::raw_pointer_cast(d_points.data()), d_points.size(), window_height, window_width);
+	cudaDeviceSynchronize();
 
 	return result;
 }
@@ -123,10 +117,6 @@ cudaError_t CudaWorker::startRoutine(int window_height, int window_witdh)
 cudaError_t CudaWorker::exitRoutine()
 {
 	cudaError_t result = cudaSuccess;
-
-	cudaFree(d_cam);
-	cudaFree(d_pixel_array);
-	cudaFree(d_grid);
 
 	return result;
 }

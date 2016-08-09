@@ -74,6 +74,7 @@ int main(int argc, char **argv)
 
 	// Set the callback functions
 	glutDisplayFunc(display);
+	glutIdleFunc(display);
 	atexit(exit);
 
 	//  Start GLUT event processing loop
@@ -135,39 +136,7 @@ void display(void)
 //-------------------------------------------------------------------------
 void updatePixelBuffer()
 {
-	for (int y = 0; y < window_height; y++)
-		for (int x = 0; x < window_width; x++)
-		{
-			glm::vec3 ray_origin, ray_direction;
-			glm::ivec3 cell(0, 0, 0);
-			bool inGrid = true, found = false;
-			Grid<PointData*> * subgrid;
-
-			ray_direction = cam.forward * cam.frame_distance
-				+ cam.up * ((y - window_height / 2) / cam.frame_height)
-				+ cam.right * ((x - window_width / 2) / cam.frame_width);
-			ray_origin = cam.position + ray_direction;
-
-			while (inGrid && !found)
-			{
-				cell = grid.castRay(ray_origin, ray_direction, &ray_origin);
-				if (cell.x < 0) {
-					get_pixel(x, y) = glm::vec3(0, 0, 0);
-					inGrid = false;
-				}
-				else {
-					subgrid = grid(cell);
-					cell = subgrid->castRay(ray_origin, ray_direction, &ray_origin);
-					if (cell.x < 0)
-						get_pixel(x, y) = glm::vec3(0, 0, 0);
-					else
-					{
-						get_pixel(x, y) = (*subgrid)(cell)->color;
-						found = true;
-					}
-				}
-			}
-		}
+	
 }
 
 //-------------------------------------------------------------------------
