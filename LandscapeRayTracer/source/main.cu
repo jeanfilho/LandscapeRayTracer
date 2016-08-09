@@ -4,7 +4,11 @@
 #include <fstream>
 #include <string>
 #include <iostream>
+#include <chrono>
 
+#include <cuda.h>
+#include <cuda_runtime.h>
+#include <cuda_runtime_api.h>
 
 void init();
 void display(void);
@@ -40,8 +44,8 @@ char *coarse_grid;
 
 // camera variables
 glm::vec3 camera_position(128,700,128);
-glm::vec3 camera_forward(0,-1,0);
-glm::vec3 camera_up(1,0,0);
+glm::vec3 camera_forward(0, -1, 0);
+glm::vec3 camera_up(1, 0, 0);
 float frame_distance = 5;
 
 // pixel array
@@ -58,6 +62,24 @@ float frame_height = 256;
 // visualization parameters
 int max_height = INT_MIN;
 int min_height = INT_MAX;
+
+
+// clock
+std::chrono::system_clock sys_clock;
+std::chrono::time_point<std::chrono::system_clock> last_frame, current_frame;
+std::chrono::duration<float> delta_time;
+
+//-------------------------------------------------------------------------
+//  DEVICE
+//-------------------------------------------------------------------------
+__device__ char *d_grid;
+__device__ char *d_coarse_grid;
+__device__ glm::vec3 d_grid_origin(0, 0, 0);
+__device__ int d_grid_size = 1000;
+__device__ float d_cell_size = 1.0f;
+__device__ int d_coarse_factor = 10;
+__device__ int d_coarse_grid_size;
+__device__ float d_coarse_cell_size;
 
 
 //-------------------------------------------------------------------------
@@ -80,6 +102,7 @@ int main(int argc, char **argv)
 
 	// Set the callback functions
 	glutDisplayFunc(display);
+	glutIdleFunc(display);
 	atexit(exit);
 
 	//  Start GLUT event processing loop
@@ -106,6 +129,8 @@ void init()
 	pixel_array = new glm::vec3[window_height * window_width]{glm::vec3(0,0,0)};
 	loadPointData();
 	
+	current_frame = last_frame = sys_clock.now();
+
 	std::cout << "Set up finished. Starting ray tracing..." << std::endl;
 }
 
@@ -113,7 +138,6 @@ void init()
 //  This function is passed to glutDisplayFunc in order to display 
 //  OpenGL contents on the window.
 //-------------------------------------------------------------------------
-int frame_number = 0;
 void display(void)
 {
 	//  Clear the window or more specifically the frame buffer...
@@ -123,8 +147,12 @@ void display(void)
 
 	//  Cast rays
 	updatePixelBuffer();
-	frame_number++;
-	std::cout << "Frame " << frame_number << std::endl;
+
+	current_frame = sys_clock.now();
+	delta_time = current_frame - last_frame;
+	last_frame = current_frame;
+
+	std::cout << "FPS " << 1 / delta_time.count() << std::endl;
 
 	//  Draw Pixels
 	glDrawPixels(window_width, window_height, GL_RGB, GL_FLOAT, pixel_array);
