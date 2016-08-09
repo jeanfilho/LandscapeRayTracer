@@ -18,7 +18,7 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="source\main.cpp">
+    <ClCompile Include="source\main.cu">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
