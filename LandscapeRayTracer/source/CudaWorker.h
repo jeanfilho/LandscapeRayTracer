@@ -1,5 +1,7 @@
 #pragma once
 
+#define GLM_FORCE_CUDA
+
 #include <iostream>
 #include <vector>
 #include <fstream>
@@ -9,27 +11,21 @@
 #include "Grid.h"
 #include "PointData.h"
 
-#include "glm\common.hpp"
-#include "glm\geometric.hpp"
-
 #include "cuda.h"
 #include "cuda_runtime.h"
 #include "cuda_runtime_api.h"
 #include "thrust\device_vector.h"
-#include "thrust\host_vector.h"
+#include "helper_cuda.h"
+#include "device_launch_parameters.h"
+
+#include "glm\glm.hpp"
+
+
 
 using namespace std;
-/*
-	This class handles all communication with the GPU and CUDA operations
-*/
-class CudaWorker
+namespace CudaWorker
 {
-public:
-	static cudaError_t loadPoints(float* max_height, float *min_height, int window_height, int window_width, Camera cam);
-	static cudaError_t startRoutine(int window_height, int window_witdh);
-	static cudaError_t exitRoutine();
-	
-private:
-	CudaWorker() {}
-	~CudaWorker() {}
-};
+	void setUp(glm::vec3 *h_pixel_array, Camera cam, int window_height, int window_width);
+	void updatePixelArray(glm::vec3 *h_pixel_array, int window_height, int window_width);
+	void release();
+}

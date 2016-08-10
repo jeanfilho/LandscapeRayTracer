@@ -1,18 +1,21 @@
 /*-------------------------------------------------------------------
 Coordinate system: Left-handed, +X(right) cross +Z(forward) = +Y (up)
 ---------------------------------------------------------------------*/
+#define GLM_FORCE_CUDA
+
 #include <fstream>
 #include <string>
 #include <iostream>
 #include <utility>
 #include <chrono>
 
+#include "cuda.h"
+#include "cuda_runtime.h"
+#include "cuda_runtime_api.h"
+
 #include <gl/freeglut.h>
 #include <glm/glm.hpp>
 
-#include <cuda_runtime.h>
-#include "thrust\device_vector.h"
-#include "thrust\host_vector.h"
 
 #include "Grid.h"
 #include "PointData.h"
@@ -36,7 +39,6 @@ int window_height = 512;
 
 //  variable representing the window title
 char *window_title = "Landscape Raytracer";
-
 
 Camera cam(glm::vec3(128, 400, 128), glm::vec3(0, -1, 0), glm::vec3(0, 0, 1), 5, 256, 256);
 glm::vec3 *pixel_array;
@@ -94,7 +96,7 @@ void init()
 
 	//initialize point vector and pixel array
 	pixel_array = new glm::vec3[window_height * window_width]{ glm::vec3(0,0,0) };
-	CudaWorker::loadPoints(&max_height, &min_height, window_height, window_width, cam);
+	CudaWorker::setUp(pixel_array, cam, window_height, window_width);
 
 	current_frame = last_frame = sys_clock.now();
 
@@ -122,21 +124,13 @@ void display(void)
 	glClear(GL_COLOR_BUFFER_BIT);
 
 	//  Cast rays
-	updatePixelBuffer();
+	CudaWorker::updatePixelArray(pixel_array, window_height, window_width);
 
 	//  Draw Pixels
 	glDrawPixels(window_width, window_height, GL_RGB, GL_FLOAT, pixel_array);
 
 	//  Swap contents of backward and forward frame buffers
 	glutSwapBuffers();
-}
-
-//-------------------------------------------------------------------------
-//  Update the pixel buffer - cast a ray for each pixel
-//-------------------------------------------------------------------------
-void updatePixelBuffer()
-{
-	
 }
 
 //-------------------------------------------------------------------------
@@ -154,7 +148,6 @@ void centerOnScreen()
 //-------------------------------------------------------------------------
 void exit()
 {
-
-	CudaWorker::exitRoutine();
+	CudaWorker::release();
 	delete(pixel_array);
 }

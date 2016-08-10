@@ -1,28 +1,32 @@
 #pragma once
-#include <glm\glm.hpp>
-#include <thrust\swap.h>
+#define GLM_FORCE_CUDA
 #include <utility>
 
 #include "cuda.h"
 #include "cuda_runtime.h"
 #include "cuda_runtime_api.h"
+#include <thrust\swap.h>
+
+#include <glm\glm.hpp>
+#include <glm\trigonometric.hpp>
 
 /*
 This class describes a NxNxN Grid
 
 Implementation: http://www.scratchapixel.com/lessons/advanced-rendering/introduction-acceleration-structure/grid
 */
-template<class T> class Grid
+template<class T>
+class Grid
 {
 public:
 	
-	__host__ __device__ Grid<T>(glm::vec3 origin, int resolution, float size, T unitialized_value);
+	__host__ __device__ Grid<T>(glm::vec3 origin, int resolution, float size, T fill);
 	__host__ __device__ ~Grid<T>();
 
-	inline __host__ __device__	T & operator()(int x, int y, int z);
+	inline __host__ __device__ T & operator()(int x, int y, int z);
 	inline __host__ __device__ T & operator()(glm::ivec3 idx);
-	inline __host__ __device__ T & operator=(const T &obj);
-	inline __host__ __device__ T & operator=(T obj);
+	inline __host__ __device__ Grid<T> & operator=(const Grid<T> &obj);
+	inline __host__ __device__ Grid<T> & operator=(Grid<T> obj);
 
 	/*-------------------------------------------------------------------------
 	Cast a ray through the grid
@@ -39,7 +43,7 @@ public:
 	const float size, cell_size;
 	glm::vec3 origin;
 
-	const T unitialized_value;
+	T unitialized_value;
 
 protected:
 
@@ -51,59 +55,60 @@ protected:
 		- start position of the ray in the grid
 		- glm::vec3(-1,-1,-1) if the ray does not intersect with the grid
 	-------------------------------------------------------------------------*/
+	__host__ __device__
 	glm::ivec3 getRaycastParameters(
 		const glm::vec3 &ray_origin,
 		const glm::vec3 &ray_direction,
 		glm::vec3 *t,
 		glm::vec3 *d);
 
-	T *grid;
+	T * grid;
 };
 
 template<class T>
-Grid<T>::Grid(glm::vec3 origin, int resolution, float size, T unitialized_value)
-	: resolution(resolution), origin(origin), size(size), cell_size(size/resolution), unitialized_value(unitialized_value)
+__host__ __device__ Grid<T>::Grid(glm::vec3 origin, int resolution, float size, T fill)
+	: resolution(resolution), origin(origin), size(size), cell_size(size/resolution)
 {
 	grid = new T[resolution*resolution*resolution];
 	for (int i = 0; i < resolution*resolution*resolution; i++)
-		grid[i] = unitialized_value;
+		grid[i] = fill;
 }
 
 template<class T>
-Grid<T>::~Grid()
+__host__ __device__ Grid<T>::~Grid()
 {
-	delete [] grid;
+	delete[] (grid);
 }
 
 template<class T>
-T & Grid<T>::operator()(int x, int y, int z)
+__host__ __device__ T & Grid<T>::operator()(int x, int y, int z)
 {
 	return grid[z * resolution * resolution + y * resolution + x];
 }
 
 template<class T>
-T & Grid<T>::operator()(glm::ivec3 idx)
+__host__ __device__ T & Grid<T>::operator()(glm::ivec3 idx)
 {
 	return (*this)(idx.x, idx.y, idx.z);
 }
 
 template<class T>
-inline T & Grid<T>::operator=(const T & obj)
+__host__ __device__ inline Grid<T> & Grid<T>::operator=(const Grid<T> & obj)
 {
-	T temp(obj);
+	Grid<T> temp(obj);
 	thrust::swap(temp, *this);
 	return *this;
 }
 
 template<class T>
-inline T & Grid<T>::operator=(T obj)
+__host__ __device__ inline Grid<T> & Grid<T>::operator=(Grid<T> obj)
 {
 	thrust::swap(obj, *this);
 	return *this;
 }
 
 template<class T>
-glm::ivec3 Grid<T>::castRay(const glm::vec3 &ray_origin, const glm::vec3 &ray_dir, glm::vec3 *intersection)
+__host__ __device__ glm::ivec3 Grid<T>::castRay(const glm::vec3 &ray_origin, const glm::vec3 &ray_dir, glm::vec3 *intersection)
 {
 	glm::ivec3 result;
 	glm::vec3 t, d, ray_direction;
@@ -124,7 +129,7 @@ glm::ivec3 Grid<T>::castRay(const glm::vec3 &ray_origin, const glm::vec3 &ray_di
 		{
 			if (t.x < t.z)
 			{
-				result.x += (int)glm::sign(ray_direction.x);
+				result.x += (ray_direction.x > 0) - (ray_direction.x < 0);
 				t_total = t.x;
 				t.x += d.x;
 				if (result.x >= resolution || result.x < 0)
@@ -132,7 +137,7 @@ glm::ivec3 Grid<T>::castRay(const glm::vec3 &ray_origin, const glm::vec3 &ray_di
 			}
 			else
 			{
-				result.z += (int)glm::sign(ray_direction.z);
+				result.z += (ray_direction.z > 0) - (ray_direction.z < 0);
 				t_total = t.z;
 				t.z += d.z;
 				if (result.z >= resolution || result.z < 0)
@@ -143,7 +148,7 @@ glm::ivec3 Grid<T>::castRay(const glm::vec3 &ray_origin, const glm::vec3 &ray_di
 		{
 			if (t.y < t.z)
 			{
-				result.y += (int)glm::sign(ray_direction.y);
+				result.y += (ray_direction.y > 0) - (ray_direction.y < 0);
 				t_total = t.y;
 				t.y += d.y;
 				if (result.y >= resolution || result.y < 0)
@@ -151,7 +156,7 @@ glm::ivec3 Grid<T>::castRay(const glm::vec3 &ray_origin, const glm::vec3 &ray_di
 			}
 			else
 			{
-				result.z += (int)glm::sign(ray_direction.z);
+				result.z += (ray_direction.z > 0) - (ray_direction.z < 0);
 				t_total = t.z;
 				t.z += d.z;
 				if (result.z >= resolution || result.z < 0)
@@ -165,7 +170,7 @@ glm::ivec3 Grid<T>::castRay(const glm::vec3 &ray_origin, const glm::vec3 &ray_di
 }
 
 template<class T>
-glm::ivec3 Grid<T>::getRaycastParameters(const glm::vec3 & ray_origin, const glm::vec3 & ray_direction, glm::vec3 *t, glm::vec3 *d)
+__host__ __device__ glm::ivec3 Grid<T>::getRaycastParameters(const glm::vec3 & ray_origin, const glm::vec3 & ray_direction, glm::vec3 *t, glm::vec3 *d)
 {
 	float origin_grid, origin_cell;
 	int i;
