@@ -4,6 +4,7 @@
 #include <fstream>
 #include <string>
 #include <iostream>
+#include <chrono>
 
 void init();
 void display(void);
@@ -58,6 +59,10 @@ float frame_height = 256;
 int max_height = INT_MIN;
 int min_height = INT_MAX;
 
+std::chrono::system_clock sys_clock;
+std::chrono::time_point<std::chrono::system_clock> last_frame, current_frame;
+std::chrono::duration<float> delta_time;
+
 
 //-------------------------------------------------------------------------
 //  Program Main method.
@@ -78,6 +83,7 @@ int main(int argc, char **argv)
 	init();
 
 	// Set the callback functions
+	glutIdleFunc(display);
 	glutDisplayFunc(display);
 	atexit(exit);
 
@@ -105,6 +111,8 @@ void init()
 	pixel_array = new glm::vec3[window_height * window_width]{glm::vec3(0,0,0)};
 	loadPointData();
 	
+	current_frame = last_frame = sys_clock.now();
+
 	std::cout << "Set up finished. Starting ray tracing..." << std::endl;
 }
 
@@ -112,9 +120,14 @@ void init()
 //  This function is passed to glutDisplayFunc in order to display 
 //  OpenGL contents on the window.
 //-------------------------------------------------------------------------
-int frame_number = 0;
+
 void display(void)
 {
+
+	current_frame = sys_clock.now();
+	delta_time = current_frame - last_frame;
+	last_frame = current_frame;
+
 	//  Clear the window or more specifically the frame buffer...
 	//  This happens by replacing all the contents of the frame
 	//  buffer by the clear color (black in our case)
@@ -122,8 +135,7 @@ void display(void)
 
 	//  Cast rays
 	updatePixelBuffer();
-	frame_number++;
-	std::cout << "Frame " << frame_number << std::endl;
+	std::cout << "FPS " << 1/delta_time.count() << std::endl;
 
 	//  Draw Pixels
 	glDrawPixels(window_width, window_height, GL_RGB, GL_FLOAT, pixel_array);
