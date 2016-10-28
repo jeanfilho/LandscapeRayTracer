@@ -23,10 +23,10 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Heightmap.h">
+    <ClInclude Include="source\Camera.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="source\Camera.h">
+    <ClInclude Include="source\Heightmap.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -32,10 +32,10 @@ std::chrono::duration<float> delta_time;
 glm::vec3 *pixel_array;
 
 //  camera
-Camera camera(1024, 1024);
+Camera camera(1024, 512, glm::vec3(0.5f, -0.5f, 0), glm::vec3(0.5, 0.5, 0), glm::vec3(0, 20, 512), 5);
 
 //  grid
-Heightmap heightmap(1024, 3, glm::vec3(0, 0, 0));
+Heightmap heightmap(1024, 3, glm::vec3(0, 0, 0), 1.0f);
 
 
 //-------------------------------------------------------------------------
@@ -76,8 +76,11 @@ void init()
 	//  Set the frame buffer clear color to black. 
 	glClearColor(0.0, 0.0, 0.0, 0.0);
 
-	//Load Points
+	//  Load Points
 	loadPointData();
+
+	//  initialize pixel array
+	pixel_array = new glm::vec3[camera.window_height*camera.window_width]();
 	
 	current_frame = last_frame = sys_clock.now();
 
@@ -116,7 +119,17 @@ void display(void)
 //-------------------------------------------------------------------------
 void updatePixelBuffer()
 {
-	
+	for (int y = 0; y < camera.window_height; y++)
+		for (int x = 0; x < camera.window_width; x++)
+		{
+			glm::vec3 ray_origin, ray_direction;
+			ray_direction = camera.forward * camera.frame_distance
+				+ camera.up * ((float)y - camera.window_height / 2)
+				+ camera.right * ((float)x - camera.window_width / 2);
+			ray_origin = camera.position + ray_direction;
+
+			pixel_array[y * camera.window_height + x] = heightmap.trace_ray(ray_origin, ray_direction);
+		}
 }
 
 //-------------------------------------------------------------------------
