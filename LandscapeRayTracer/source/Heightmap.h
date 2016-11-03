@@ -24,57 +24,64 @@ public:
 		}
 	}
 
+	int LOD_change = INT_MAX;
 	glm::vec3 trace_ray(glm::vec3 ray_origin, glm::vec3 ray_direction)
 	{
-		glm::vec3 t, d, color(1, 0, 0);
-		int LOD = 0, cells_walked = 0;
-		float t_total, current_height = 0.0f;
+		glm::vec2 t, d;
+		glm::vec3 color(1, 0, 0);
+		int LOD = 0;
+		float t_total = 0,
+			current_height = ray_origin.z;
+		glm::ivec2 cells_walked(0,0);
 		ray_direction = glm::normalize(ray_direction);
 
 		glm::ivec2 grid_position = get_parameters(&t, &d, ray_origin, ray_direction);
 
 
 		// check if ray is out of bounds
-		if (is_ray_out_of_boundaries(grid_position))
+		if (is_ray_out_of_boundaries(grid_position, LOD))
 			return glm::vec3(0, 0, 0);
 
 		while (current_height > get_grid_height(LOD, grid_position.x, grid_position.y))
 		{
 			if (t.x < t.y)
 			{
-				grid_position.x++;
+				grid_position.x += glm::sign(ray_direction.x);
 				t.x += d.x;
 				t_total = t.x;
+				cells_walked.x++;
 			}
 			else
 			{
-				grid_position.y++;
+				grid_position.y += glm::sign(ray_direction.y);
 				t.y += d.y;
 				t_total = t.y;
+				cells_walked.y++;
 			}
-			
-			// check if ray is out of bounds
-			if (is_ray_out_of_boundaries(grid_position))
-				return glm::vec3(0, 0, 0);
+			current_height = t_total * ray_direction.z + ray_origin.z;
 			
 			// decreases the LOD
-			cells_walked++;
-			if (cells_walked > 4 && LOD < levels)
+			if ((cells_walked.x > LOD_change || cells_walked.y > LOD_change) && LOD < levels - 1)
 			{
-				cells_walked = 0;
+				grid_position /= 2;
 				LOD++;
+				d *= 2;
+				cells_walked.x = cells_walked.y = 0;
 			}
-		}
 
+			// check if ray is out of bounds
+			if (is_ray_out_of_boundaries(grid_position, LOD))
+				return glm::vec3(0, 0, 0);
+		} 
 		return color;
 	}
 
-	glm::ivec2 get_parameters(glm::vec3 *t, glm::vec3 *d, glm::vec3 ray_origin, glm::vec3 ray_direction)
+	glm::ivec2 get_parameters(glm::vec2 *t, glm::vec2 *d, glm::vec3 ray_origin, glm::vec3 ray_direction)
 	{
 		float origin_grid, origin_cell;
 		glm::ivec2 grid_position;
 
-		for (int i = 0; i < 2; i++)
+		for (int i = 0; i < grid_position.length(); i++)
 			grid_position[i] = int((ray_origin[i] - origin[i]) / cell_size);
 
 		for (int i = 0; i < t->length(); i++)
@@ -110,10 +117,11 @@ public:
 		return (grids[LOD])[(int)(resolution / (pow(2, LOD))) * y + x];
 	}
 
-	bool is_ray_out_of_boundaries(glm::ivec2 grid_position)
+	bool is_ray_out_of_boundaries(glm::ivec2 grid_position, int LOD)
 	{
-		return grid_position.x >= resolution || grid_position.x < 0
-			|| grid_position.y >= resolution || grid_position.y < 0;
+		int bound = resolution / pow(2, LOD);
+		return grid_position.x >= bound || grid_position.x < 0
+			|| grid_position.y >= bound || grid_position.y < 0;
 	}
 
 protected:

@@ -1,3 +1,7 @@
+/*
+Coordinate system: X is fwd, Y is right, Z is up
+*/
+
 #include <gl/freeglut.h>
 #include <glm/glm.hpp>
 #include <fstream>
@@ -32,10 +36,10 @@ std::chrono::duration<float> delta_time;
 glm::vec3 *pixel_array;
 
 //  camera
-Camera camera(1024, 512, glm::vec3(0.5f, -0.5f, 0), glm::vec3(0.5, 0.5, 0), glm::vec3(0, 20, 512), 5);
+Camera camera(1024, 512, glm::vec3(0, 0, -1), glm::vec3(0, 1, 0), glm::vec3(512, 512, 600), 200);
 
 //  grid
-Heightmap heightmap(1024, 3, glm::vec3(0, 0, 0), 1.0f);
+Heightmap heightmap(1024, 8, glm::vec3(0, 0, 0), 1.0f);
 
 
 //-------------------------------------------------------------------------
@@ -124,11 +128,11 @@ void updatePixelBuffer()
 		{
 			glm::vec3 ray_origin, ray_direction;
 			ray_direction = camera.forward * camera.frame_distance
-				+ camera.up * ((float)y - camera.window_height / 2)
-				+ camera.right * ((float)x - camera.window_width / 2);
+				+ camera.up * (float)(y - camera.window_height / 2)
+				+ camera.right * (float)(x - camera.window_width / 2);
 			ray_origin = camera.position + ray_direction;
 
-			pixel_array[y * camera.window_height + x] = heightmap.trace_ray(ray_origin, ray_direction);
+			pixel_array[y * camera.window_width + x] = heightmap.trace_ray(ray_origin, ray_direction);
 		}
 }
 
@@ -140,10 +144,10 @@ void loadPointData()
 	std::ifstream file("../Data/data");
 	std::string line, data;
 	int x, y, z, coarse_x, coarse_y, coarse_z; 
-	while (std::getline(file, line) && !line.empty())
+	/*while (std::getline(file, line) && !line.empty())
 	{
 		// TODO: read through file
-	}
+	}*/
 	file.close();
 }
 

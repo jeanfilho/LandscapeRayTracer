@@ -5,9 +5,9 @@ class Camera
 {
 public:
 	~Camera() {};
-	Camera(int window_width, int window_height, glm::vec3 up, glm::vec3 forward, glm::vec3 position, float frame_distance) :
+	Camera(int window_width, int window_height, glm::vec3 forward, glm::vec3 right, glm::vec3 position, float frame_distance) :
 		window_width(window_width), window_height(window_height),
-		forward(glm::normalize(forward)), up(glm::normalize(up)), right(glm::cross(forward, up)),
+		forward(glm::normalize(forward)), up(glm::normalize(glm::cross(forward, right))), right(glm::normalize(right)),
 		position(position), frame_distance(frame_distance)
 	{};
 
