@@ -44,6 +44,7 @@ public:
 	glm::vec3 origin;
 
 	T unitialized_value;
+	T * grid;
 
 protected:
 
@@ -61,8 +62,6 @@ protected:
 		const glm::vec3 &ray_direction,
 		glm::vec3 *t,
 		glm::vec3 *d);
-
-	T * grid;
 };
 
 template<class T>

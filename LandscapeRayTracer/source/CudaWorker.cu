@@ -2,23 +2,22 @@
 
 __device__ Grid<Grid<bool>*> *d_grid = NULL;
 __device__ int d_wh, d_ww;
-__device__ Camera *d_cam = NULL;
+Camera *d_cam;
 glm::vec3 *d_pixel_array;
 thrust::device_vector<PointData> d_points;
 
-__global__ void d_setUp(PointData* d_point_array, int size, Camera cam, int wh, int ww)
+__global__ void d_setUp(PointData* d_point_array, int size, int wh, int ww)
 {
 	float x, y, z;
 	int	coarse_x, coarse_y, coarse_z,
 		fine_x, fine_y, fine_z;
 
-	*d_cam = cam;
 	d_ww = ww;
 	d_wh = wh;
 
-	d_grid = new Grid<Grid<bool>*>(glm::vec3(0, 0, 0), 1000, 10000, NULL);
+	d_grid = new Grid<Grid<bool>*>(glm::vec3(0, 0, 0), 1000, 10000, 0);
 	Grid<bool>* subgrid;
-
+	
 
 	for (int i = 0; i < size; i++)
 	{
@@ -43,7 +42,7 @@ __global__ void d_setUp(PointData* d_point_array, int size, Camera cam, int wh, 
 	}
 }
 
-__global__ void d_castRays(glm::vec3 *d_pixel_array)
+__global__ void d_castRays(glm::vec3 *d_pixel_array, Camera *d_cam)
 {
 	bool inGrid = true, isFinished = false;
 	glm::vec3 ray_pos, ray_dir;
@@ -99,15 +98,17 @@ void CudaWorker::setUp(glm::vec3 *h_pixel_array, Camera cam, int window_height, 
 	file.close();
 
 	checkCudaErrors(cudaMalloc(&d_pixel_array, window_height * window_width * sizeof(glm::vec3)));
+	checkCudaErrors(cudaMalloc(&d_cam, sizeof(Camera)));
 	checkCudaErrors(cudaMemcpy(d_pixel_array, h_pixel_array, window_height * window_width * sizeof(glm::vec3), cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(d_cam, &cam, sizeof(Camera), cudaMemcpyHostToDevice));
 	
-	d_setUp << <1, 1 >> >(thrust::raw_pointer_cast(d_points.data()), d_points.size(), cam, window_height, window_width);
+	d_setUp << <1, 1 >> >(thrust::raw_pointer_cast(d_points.data()), d_points.size(), window_height, window_width);
 }
 
 void CudaWorker::updatePixelArray(glm::vec3 *h_pixel_array, int window_height, int window_width)
 {
 	dim3 numBlocks(window_height, window_width);
-	d_castRays << <numBlocks, 1 >> >(d_pixel_array);
+	d_castRays << <numBlocks, 1 >> >(d_pixel_array, d_cam);
 
 	cudaDeviceSynchronize();
 
@@ -117,4 +118,5 @@ void CudaWorker::updatePixelArray(glm::vec3 *h_pixel_array, int window_height, i
 void CudaWorker::release()
 {
 	cudaFree(d_pixel_array);
+	cudaFree(d_cam);
 }
